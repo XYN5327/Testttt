@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000000; /* Deep black background */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 75vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .text-container {
+            position: absolute;
+            bottom: 12%;
+            z-index: 2;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        h1 {
+            color: #ffffff;
+            font-size: 1.4rem;
+            font-weight: 400;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        p {
+            color: #555555;
+            margin-top: 6px;
+            font-size: 0.7rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div class="text-container">
+        <h1>I love you kub p pond</h1>
+        <p>Don't overthinking na kub auan</p>
+    </div>
+
+    <script>
+        // --- 1. Scene Setup & Renderer ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000); // Pure Black
+
+        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / (window.innerHeight * 0.75), 0.1, 1000);
+        camera.position.z = 14;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight * 0.75);
+        
+        // Tone mapping makes the metal highlights look intense and realistic
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.5;
+        container.appendChild(renderer.domElement);
+
+        // --- 2. Procedural Chrome Environment Map ---
+        // Chrome behaves like a mirror; it needs a bright environment to reflect, 
+        // otherwise it just looks like flat, dull gray plastic.
+        function createChromeEnvMap() {
+            const size = 64;
+            const data = new Uint8Array(size * size * 3);
+            for (let i = 0; i < size * size; i++) {
+                const x = (i % size) / size;
+                const y = Math.floor(i / size) / size;
+                
+                // Create high-contrast white studio light streaks against dark space
+                const pattern = Math.sin(x * Math.PI * 4) * Math.cos(y * Math.PI * 2);
+                const brightness = pattern > 0.2 ? 255 : (pattern > -0.2 ? 120 : 10);
+                
+                const idx = i * 3;
+                data[idx] = brightness;     // R
+                data[idx + 1] = brightness; // G
+                data[idx + 2] = brightness; // B
+            }
+            const texture = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
+            texture.mapping = THREE.EquirectangularReflectionMapping;
+            texture.needsUpdate = true;
+            return texture;
+        }
+        const chromeEnvMap = createChromeEnvMap();
+
+        // --- 3. Mathematical Heart Outline Path ---
+        const points = [];
+        for (let t = 0; t <= Math.PI * 2; t += 0.04) {
+            const x = 16 * Math.pow(Math.sin(t), 3);
+            const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+            points.push(new THREE.Vector3(x * 0.23, y * 0.23, 0));
+        }
+
+        const heartPath = new THREE.CatmullRomCurve3(points);
+        heartPath.closed = true;
+
+        // Turn the mathematical path into a smooth 3D tube geometry
+        const geometry = new THREE.TubeGeometry(heartPath, 120, 0.28, 24, true);
+        geometry.center();
+
+        // --- 4. Chrome Material Properties ---
+        const chromeMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,          // Base silver white
+            metalness: 1.0,           // 100% metallic surface
+            roughness: 0.05,          // Polished mirror shine
+            envMap: chromeEnvMap,     // Apply our custom studio reflection map
+            envMapIntensity: 3.5      // Boost reflection vividness
+        });
+
+        const chromeHeart = new THREE.Mesh(geometry, chromeMaterial);
+        scene.add(chromeHeart);
+
+        // --- 5. High-Intensity Studio Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        scene.add(ambientLight);
+
+        // Sharp key lights to hit the front face curves of the chrome ring
+        const keyLight1 = new THREE.DirectionalLight(0xffffff, 3.0);
+        keyLight1.position.set(5, 10, 5);
+        scene.add(keyLight1);
+
+        const keyLight2 = new THREE.DirectionalLight(0xffffff, 1.5);
+        keyLight2.position.set(-5, -5, 5);
+        scene.add(keyLight2);
+
+        // --- 6. Animation Loop ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            // Smoothly rotates the mesh so you can see the chrome catch the light waves
+            chromeHeart.rotation.y = elapsedTime * 0.6;
+            chromeHeart.rotation.x = Math.sin(elapsedTime * 0.4) * 0.2;
+
+            // Gentle floating levitation rhythm
+            chromeHeart.position.y = Math.sin(elapsedTime * 1.2) * 0.2;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --- 7. Window Resize Handler ---
+        window.addEventListener('resize', onWindowResize, false);
+
+        function onWindowResize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight * 0.75;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(width, height);
+        }
+    </script>
+</body>
+</html>
